@@ -1,0 +1,5 @@
+{
+  "name": "AI Image Editor",
+  "description": "An AI-powered app that uses Gemini to generate new images based on user-uploaded photos and a text prompt. Upload up to 3 photos, describe the transformation, and let the AI create a new visual.",
+  "requestFramePermissions": []
+}
