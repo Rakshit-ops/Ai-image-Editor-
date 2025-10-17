@@ -11,38 +11,34 @@ const App: React.FC = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Rate limiting state
+
+  // Rate limiting
   const MAX_REQUESTS = 30;
   const WINDOW_MINUTES = 30;
   const [requestsLeft, setRequestsLeft] = useState<number>(MAX_REQUESTS);
   const [limitResetTime, setLimitResetTime] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<string>('');
 
+  // Load rate limit from localStorage
   useEffect(() => {
-    // Initialize rate limit state from localStorage on component mount
     const storedRequests = localStorage.getItem('requestsLeft');
     const storedResetTime = localStorage.getItem('limitResetTime');
 
-    if (storedResetTime && storedRequests) {
+    if (storedRequests && storedResetTime) {
       const resetTime = parseInt(storedResetTime, 10);
       if (Date.now() > resetTime) {
-        // The limit window has expired, reset it
         localStorage.removeItem('requestsLeft');
         localStorage.removeItem('limitResetTime');
-        setRequestsLeft(MAX_REQUESTS);
-        setLimitResetTime(null);
       } else {
-        // Still within the limit window
         setRequestsLeft(parseInt(storedRequests, 10));
         setLimitResetTime(resetTime);
       }
     }
   }, []);
 
+  // Countdown timer for rate limit reset
   useEffect(() => {
-    // Timer effect for the countdown
-    if (limitResetTime === null || requestsLeft > 0) {
+    if (!limitResetTime || requestsLeft > 0) {
       setCountdown('');
       return;
     }
@@ -68,24 +64,25 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [limitResetTime, requestsLeft]);
 
-
+  // File handling
   const handleFilesChange = (newFiles: File[]) => {
     if (files.length + newFiles.length > 3) {
-      setError(`You can upload a maximum of 3 files.`);
+      setError('You can upload a maximum of 3 files.');
       return;
     }
-    setFiles(prevFiles => [...prevFiles, ...newFiles]);
+    setFiles(prev => [...prev, ...newFiles]);
     setError(null);
   };
 
   const handleRemoveFile = (index: number) => {
-    setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Generate image using free tier (no API key required)
   const handleGenerate = async () => {
     if (requestsLeft === 0) {
-        setError('Generation limit reached. Please try again later.');
-        return;
+      setError('Generation limit reached. Please try again later.');
+      return;
     }
     if (!prompt.trim()) {
       setError('Please enter a prompt to describe your desired image.');
@@ -97,26 +94,21 @@ const App: React.FC = () => {
     setGeneratedImage(null);
 
     try {
-      const imageUrl = await generateImage(files, prompt);
+      const imageUrl = await generateImage(files, prompt); // free tier usage
       setGeneratedImage(imageUrl);
-      
-      // Update rate limit state after a successful generation
+
+      // Update rate limit
       const newRequestsLeft = requestsLeft - 1;
       setRequestsLeft(newRequestsLeft);
       localStorage.setItem('requestsLeft', newRequestsLeft.toString());
 
-      if (limitResetTime === null) {
+      if (!limitResetTime) {
         const newResetTime = Date.now() + WINDOW_MINUTES * 60 * 1000;
         setLimitResetTime(newResetTime);
         localStorage.setItem('limitResetTime', newResetTime.toString());
       }
-
     } catch (e) {
-      if (e instanceof Error) {
-        setError(e.message);
-      } else {
-        setError('An unknown error occurred while generating the image.');
-      }
+      setError(e instanceof Error ? e.message : 'An unknown error occurred while generating the image.');
     } finally {
       setIsLoading(false);
     }
@@ -141,8 +133,8 @@ const App: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4">2. Describe Your Image</h2>
             <textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g., 'A golden retriever sitting on a bench in a park' or 'Add a party hat to the person on the left'"
+              onChange={e => setPrompt(e.target.value)}
+              placeholder="e.g., 'A golden retriever sitting on a bench in a park'"
               className="w-full h-24 p-3 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
             />
           </div>
@@ -156,19 +148,23 @@ const App: React.FC = () => {
               {isLoading ? 'Generating...' : '✨ Generate Image'}
             </button>
             <div className="mt-4 text-sm text-gray-400">
-                {requestsLeft === 0 && limitResetTime ? (
-                  <p>
-                    Limit reached. Please try again in <span className="font-semibold text-purple-400">{countdown}</span>.
-                  </p>
-                ) : (
-                  <p>
-                    Generations remaining: <span className="font-semibold text-white">{requestsLeft}</span> / {MAX_REQUESTS}
-                  </p>
-                )}
+              {requestsLeft === 0 && limitResetTime ? (
+                <p>
+                  Limit reached. Please try again in <span className="font-semibold text-purple-400">{countdown}</span>.
+                </p>
+              ) : (
+                <p>
+                  Generations remaining: <span className="font-semibold text-white">{requestsLeft}</span> / {MAX_REQUESTS}
+                </p>
+              )}
             </div>
           </div>
 
-          {error && <div className="mt-6 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-md text-center">{error}</div>}
+          {error && (
+            <div className="mt-6 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-md text-center">
+              {error}
+            </div>
+          )}
 
           <div className="mt-8">
             {isLoading && <Loader />}

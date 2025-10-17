@@ -1,15 +1,10 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { blobToBase64 } from "../utils/fileUtils";
 
-if (!process.env.API_KEY) {
-    // This is a placeholder check. The build environment will inject the API key.
-    // In a real scenario, you would have more robust error handling or a server-side proxy.
-    console.warn("API_KEY environment variable not set. API calls will fail.");
-}
+// Initialize AI client without API key for free tier
+const ai = new GoogleGenAI(); // Free tier does not require a key
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
-// Define the type for an image part
+// Define types for image and text parts
 interface ImagePart {
     inlineData: {
         data: string; // base64 encoded string
@@ -17,7 +12,6 @@ interface ImagePart {
     };
 }
 
-// Define the type for a text part
 interface TextPart {
     text: string;
 }
@@ -40,7 +34,6 @@ export const generateImage = async (files: File[], prompt: string): Promise<stri
 
         const textPart: TextPart = { text: prompt };
 
-        // Fix: For image editing, it's conventional to place image parts before the text prompt.
         const allParts: ContentPart[] = [...resolvedImageParts, textPart];
 
         const response = await ai.models.generateContent({
@@ -52,8 +45,8 @@ export const generateImage = async (files: File[], prompt: string): Promise<stri
                 responseModalities: [Modality.IMAGE],
             },
         });
-        
-        // Extract the generated image from the response
+
+        // Extract generated image from response
         const firstCandidate = response.candidates?.[0];
         if (firstCandidate?.content?.parts) {
             for (const part of firstCandidate.content.parts) {
@@ -65,12 +58,11 @@ export const generateImage = async (files: File[], prompt: string): Promise<stri
             }
         }
 
-        // If no image is found, provide a more detailed error based on finishReason
         const finishReason = firstCandidate?.finishReason;
         if (finishReason && finishReason !== 'STOP') {
-             throw new Error(`Image generation failed. Reason: ${finishReason}. This is often due to safety filters or an invalid request.`);
+            throw new Error(`Image generation failed. Reason: ${finishReason}. This is often due to safety filters or an invalid request.`);
         }
-        
+
         throw new Error("No image was generated in the response. The response may have been empty or blocked.");
 
     } catch (error) {
